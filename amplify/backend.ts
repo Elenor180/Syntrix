@@ -1,12 +1,11 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
-import { orchestratorFunction } from './functions/orchestrator/resource'; //
 import { Bucket } from 'aws-cdk-lib/aws-s3'; 
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 
 const backend = defineBackend({
   auth,
-  orchestratorFunction, // Let Amplify manage the deployment of your code
+  // Removed orchestratorFunction reference to stop the "Module Not Found" error
 });
 
 // 1. STACK MAPPING (Existing S3 Buckets)
@@ -42,8 +41,14 @@ backend.auth.resources.authenticatedUserIamRole.addToPrincipalPolicy(
   })
 );
 
-// Allow the authenticated users to invoke the NEW Amplify-managed Orchestrator
-backend.orchestratorFunction.resources.lambda.grantInvoke(backend.auth.resources.authenticatedUserIamRole);
+// Allow users to invoke the EXISTING manual Orchestrator in your account
+backend.auth.resources.authenticatedUserIamRole.addToPrincipalPolicy(
+  new PolicyStatement({
+    effect: Effect.ALLOW,
+    actions: ['lambda:InvokeFunction'],
+    resources: ['arn:aws:lambda:af-south-1:613272079074:function:SyntrixPOCRegionA-OrchestratorFunction-xcTHWjvQTL3t'],
+  })
+);
 
 // 3. CLEAN OUTPUTS
 backend.addOutput({
@@ -52,8 +57,8 @@ backend.addOutput({
     bucket_name: ingestionBucket.bucketName,
   },
   custom: {
-    // This now dynamically points to the new function URL
-    orchestratorFunctionArn: backend.orchestratorFunction.resources.lambda.functionArn,
+    // Hardcoded ARN to ensure the frontend connects to your existing logic
+    orchestratorFunctionArn: 'arn:aws:lambda:af-south-1:613272079074:function:SyntrixPOCRegionA-OrchestratorFunction-xcTHWjvQTL3t',
     processedBucketName: processedBucket.bucketName,
     tempBucketName: 'processing-temp-613272079074-eu-west-1'
   },
