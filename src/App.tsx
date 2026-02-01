@@ -22,9 +22,15 @@ function App() {
     if (isProcessing && !isReadyForExport && file) {
       interval = window.setInterval(async () => {
         try {
+          // Explicitly passing the bucket object for imported S3 resources
           const result = await list({
             path: `processed/`,
-            options: { bucket: outputs.custom.processedBucketName }
+            options: { 
+              bucket: {
+                bucketName: outputs.custom.processedBucketName,
+                region: 'af-south-1' 
+              } 
+            }
           });
           const found = result.items.some(item => item.path === `processed/${file.name}.json`);
           if (found) {
@@ -44,20 +50,25 @@ function App() {
     try {
       setIsBusy(true);
       setStatus('Ingesting to Cape Town...');
+      // Default upload uses the bucket defined in backend.addOutput
       await uploadData({ path: `raw/${file.name}`, data: file }).result;
       setIsUploaded(true);
       setStatus('Ready for Processing.');
-    } catch (e) { setStatus('Upload Error.'); } finally { setIsBusy(false); }
+    } catch (e) { 
+      setStatus('Upload Error.'); 
+      console.error(e);
+    } finally { setIsBusy(false); }
   };
 
-  // --- REVERTED: SDK-BASED PROCESS HANDLER ---
   const handleProcess = async () => {
     try {
       setIsBusy(true);
       setStatus('Starting AI Analysis...');
       
       const session = await fetchAuthSession();
-      // Direct SDK invocation: Secure and CORS-free on Amplify Hosting
+      if (!session.credentials) throw new Error("No active AWS session found.");
+
+      // Direct SDK invocation: Uses the manual ARN provided via custom outputs
       const client = new LambdaClient({ 
         region: 'af-south-1', 
         credentials: session.credentials 
@@ -88,10 +99,17 @@ function App() {
   const handleExport = async () => {
     try {
       setIsBusy(true);
+      // Explicitly identifying the processed bucket location
       const result = await downloadData({
         path: `processed/${file?.name}.json`, 
-        options: { bucket: outputs.custom.processedBucketName }
+        options: { 
+          bucket: {
+            bucketName: outputs.custom.processedBucketName,
+            region: 'af-south-1'
+          }
+        }
       }).result;
+
       const blob = await (result.body as any).blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -100,7 +118,10 @@ function App() {
       a.click();
       setStatus('Success! Resetting...');
       setTimeout(resetApp, 3000);
-    } catch (e) { setStatus('Download Error.'); } finally { setIsBusy(false); }
+    } catch (e) { 
+      setStatus('Download Error.'); 
+      console.error(e);
+    } finally { setIsBusy(false); }
   };
 
   const resetApp = () => {
@@ -115,7 +136,7 @@ function App() {
 
   return (
     <Authenticator>
-      {({ signOut, user }) => (
+      {({ signOut }) => (
         <main className="syntrix-dashboard">
           <h1>SYNTRIX INTELLIGENCE PORTAL</h1>
           <div className="action-card">
