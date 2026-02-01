@@ -1,13 +1,15 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
+import { orchestratorFunction } from './functions/orchestrator/resource'; //
 import { Bucket } from 'aws-cdk-lib/aws-s3'; 
 import { PolicyStatement, Effect } from 'aws-cdk-lib/aws-iam';
 
 const backend = defineBackend({
   auth,
+  orchestratorFunction, // Let Amplify manage the deployment of your code
 });
 
-// 1. STACK MAPPING (Importing your cross-region resources)
+// 1. STACK MAPPING (Existing S3 Buckets)
 const ingestionStack = backend.createStack('IngestionStack');
 const ingestionBucket = Bucket.fromBucketAttributes(ingestionStack, 'ImportedIngestionBucket', {
   bucketArn: 'arn:aws:s3:::syntrix-doc-ingestion',
@@ -40,13 +42,8 @@ backend.auth.resources.authenticatedUserIamRole.addToPrincipalPolicy(
   })
 );
 
-// Allow the frontend to invoke the Orchestrator directly
-backend.auth.resources.authenticatedUserIamRole.addToPrincipalPolicy(
-  new PolicyStatement({
-    actions: ['lambda:InvokeFunction'],
-    resources: ['arn:aws:lambda:af-south-1:613272079074:function:SyntrixPOCRegionA-OrchestratorFunction-xcTHWjvQTL3t'],
-  })
-);
+// Allow the authenticated users to invoke the NEW Amplify-managed Orchestrator
+backend.orchestratorFunction.resources.lambda.grantInvoke(backend.auth.resources.authenticatedUserIamRole);
 
 // 3. CLEAN OUTPUTS
 backend.addOutput({
@@ -55,8 +52,9 @@ backend.addOutput({
     bucket_name: ingestionBucket.bucketName,
   },
   custom: {
-    // These will now be consistent across local and hosting
-    orchestratorFunctionArn: 'arn:aws:lambda:af-south-1:613272079074:function:SyntrixPOCRegionA-OrchestratorFunction-xcTHWjvQTL3t',
+    // This now dynamically points to the new function URL
+    orchestratorFunctionArn: backend.orchestratorFunction.resources.lambda.functionArn,
     processedBucketName: processedBucket.bucketName,
+    tempBucketName: 'processing-temp-613272079074-eu-west-1'
   },
 });
