@@ -1,11 +1,36 @@
-import { referenceAuth } from '@aws-amplify/backend';
+import { defineAuth } from '@aws-amplify/backend';
 
-export const auth = referenceAuth({
-  userPoolId: 'af-south-1_NSJDuDgfq',
-  identityPoolId: 'af-south-1:66accfee-01bb-4ade-a157-a7917e8da298',
-  userPoolClientId: '587ovbh6hp1i26m9u1sen8unjd',
-  authRoleArn: 'arn:aws:iam::613272079074:role/service-role/syntrix-auth',
-  
-  // Mandatory ARN
-  unauthRoleArn: 'arn:aws:iam::613272079074:role/service-role/Cognito_syntrix_IdentityPool_Unauth_Role'
+export const auth = defineAuth({
+  loginWith: {
+    email: true,                    // sign-in with email + password
+    // phone: true,                 // uncomment if you also want phone login
+  },
+
+  userAttributes: {
+    // Optional: add attributes you want to collect / store
+    name: { mutable: true, required: false },
+    family_name: { mutable: true, required: false },
+    // email_verified: { mutable: false, required: true },
+  },
+
+  password: {
+    minLength: 8,
+    requireLowercase: true,
+    requireUppercase: true,
+    requireNumbers: true,
+    requireSymbols: true,
+  },
+
+  // Allow users to sign themselves up
+  userSignup: {
+    selfSignUp: true,
+    // autoConfirm: true,           // auto-confirm users (not recommended for production)
+  },
+
+  // Optional: add MFA later when ready
+  // multifactor: {
+  //   mode: 'OPTIONAL',
+  //   sms: true,
+  //   totp: true,
+  // },
 });
