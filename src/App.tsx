@@ -18,13 +18,18 @@ function App() {
 
   // --- POLLING LOGIC ---
   useEffect(() => {
-    let interval: number;
+    let interval: number | undefined;
+    let attempts = 0;
+    const maxAttempts = 60; // ~5 minutes at 5-second interval
+
     if (isProcessing && !isReadyForExport && file) {
       interval = window.setInterval(async () => {
         try {
-          // Explicitly passing the bucket object for imported S3 resources
+          attempts++;
+          console.log(`Polling attempt ${attempts} for processed/raw/${file.name}.json`);
+
           const result = await list({
-            path: `processed/`,
+            path: `processed/raw/`,
             options: { 
               bucket: {
                 bucketName: outputs.custom.processedBucketName,
@@ -32,17 +37,39 @@ function App() {
               } 
             }
           });
-          const found = result.items.some(item => item.path === `processed/${file.name}.json`);
+
+          console.log('Polling result - items found:', result.items.length);
+          console.log('Files:', result.items.map(item => item.path));
+
+          // More forgiving match (handles spaces/special chars better)
+          const found = result.items.some(item => 
+            item.path.endsWith(`${file.name}.json`) ||
+            item.path.includes(file.name) && item.path.endsWith('.json')
+          );
+
           if (found) {
+            console.log('Processed file detected!');
             setIsReadyForExport(true);
             setIsProcessing(false);
             setStatus('Extraction Complete! Click Export.');
-            clearInterval(interval);
+            if (interval) clearInterval(interval);
           }
-        } catch (e) { console.error("Polling error:", e); }
+
+          if (attempts >= maxAttempts) {
+            console.log('Polling timed out after', maxAttempts, 'attempts');
+            setStatus('Processing timed out. Please try again.');
+            setIsProcessing(false);
+            if (interval) clearInterval(interval);
+          }
+        } catch (e) {
+          console.error("Polling error:", e);
+        }
       }, 5000);
     }
-    return () => clearInterval(interval);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [isProcessing, isReadyForExport, file]);
 
   const handleUpload = async () => {
@@ -50,7 +77,6 @@ function App() {
     try {
       setIsBusy(true);
       setStatus('Ingesting to Cape Town...');
-      // Default upload uses the bucket defined in backend.addOutput
       await uploadData({ path: `raw/${file.name}`, data: file }).result;
       setIsUploaded(true);
       setStatus('Ready for Processing.');
@@ -68,7 +94,6 @@ function App() {
       const session = await fetchAuthSession();
       if (!session.credentials) throw new Error("No active AWS session found.");
 
-      // Direct SDK invocation: Uses the manual ARN provided via custom outputs
       const client = new LambdaClient({ 
         region: 'af-south-1', 
         credentials: session.credentials 
@@ -99,9 +124,8 @@ function App() {
   const handleExport = async () => {
     try {
       setIsBusy(true);
-      // Explicitly identifying the processed bucket location
       const result = await downloadData({
-        path: `processed/${file?.name}.json`, 
+        path: `processed/raw/${file?.name}.json`, 
         options: { 
           bucket: {
             bucketName: outputs.custom.processedBucketName,
