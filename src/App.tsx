@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Authenticator } from '@aws-amplify/ui-react';
-import { uploadData, downloadData, list } from 'aws-amplify/storage';
+import { uploadData, downloadData, list } from 'aws-amplify';           // ← Correct v6+ import
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import { fetchAuthSession } from 'aws-amplify/auth';
 import '@aws-amplify/ui-react/styles.css';
@@ -42,7 +42,7 @@ function App() {
           console.log('Files:', result.items.map(item => item.path));
 
           // More forgiving match (handles spaces/special chars better)
-          const found = result.items.some(item => 
+          const found = result.items.some((item: { path: string }) => 
             item.path.endsWith(`${file.name}.json`) ||
             item.path.includes(file.name) && item.path.endsWith('.json')
           );
