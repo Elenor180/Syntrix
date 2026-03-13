@@ -55,6 +55,14 @@ h1 {
   max-width: 850px;
 }
 
+.file-meta {
+  margin: 0 0 20px;
+  color: #8fa8b0;
+  font-size: 0.95rem;
+  letter-spacing: 0.03em;
+  text-align: left;
+}
+
 /* --- File Input Styling --- */
 input[type="file"] {
   background: rgba(255, 255, 255, 0.05);
@@ -63,6 +71,7 @@ input[type="file"] {
   border: 1px dashed #444;
   margin-bottom: 40px;
   width: 100%;
+  box-sizing: border-box;
   color: #888;
   cursor: pointer;
   transition: border-color 0.3s ease;
@@ -183,4 +192,30 @@ button:disabled {
   border-color: #ff4d4d;
   color: #ff4d4d;
   background: rgba(255, 77, 77, 0.05);
+}
+
+@media (max-width: 768px) {
+  .syntrix-dashboard {
+    gap: 24px;
+    padding: 24px 0;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    letter-spacing: 2px;
+    padding: 0 16px;
+  }
+
+  .action-card {
+    width: calc(100% - 24px);
+    padding: 28px 20px;
+  }
+
+  .button-group {
+    grid-template-columns: 1fr;
+  }
+
+  .logout-btn {
+    margin-top: 20px;
+  }
 }
