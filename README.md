@@ -1,73 +1,81 @@
-# React + TypeScript + Vite
+# Syntrix
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Syntrix is an AWS-connected proof of concept for document ingestion, OCR extraction, AI-assisted data structuring, and CSV export. This repository implements a focused processing portal: users upload PDF documents, trigger the extraction pipeline, preview the resulting dataset, and download the processed output.
 
-Currently, two official plugins are available:
+The code here represents the document-processing engine and frontend workflow rather than the full multi-module Syntrix business platform.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## What This Repo Contains
 
-## React Compiler
+- A React + TypeScript frontend built with Vite.
+- AWS Amplify authentication wiring for Cognito-backed sign-in.
+- Direct browser upload into an S3 ingestion bucket in `af-south-1`.
+- Direct browser invocation of an existing orchestrator Lambda in `af-south-1`.
+- Python Lambda handlers for Textract completion processing and Bedrock-based field extraction.
+- CSV and metadata outputs written to S3.
+- Processing records written to DynamoDB for audit and tracking.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Current Scope
 
-## Expanding the ESLint configuration
+The code in this repo supports a single document-processing pipeline:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. Upload a PDF.
+2. Trigger processing.
+3. Wait for OCR and AI extraction to finish.
+4. Preview the extracted dataset.
+5. Export the result as CSV.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+This repository does not contain the full orchestration layer. The frontend is wired to existing AWS resources by ARN and bucket name, so some production components live outside the repo.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+The broader architecture, limitations, scaling notes, and production-hardening recommendations are documented in [docs/syntrix-architecture-review.md](docs/syntrix-architecture-review.md).
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Architecture At A Glance
+
+```text
+Browser
+  -> S3 ingestion bucket (af-south-1)
+  -> existing Orchestrator Lambda (af-south-1)
+  -> Textract workflow / temp bucket (eu-west-1)
+  -> Textract completion Lambda (eu-west-1)
+  -> Bedrock extraction Lambda (eu-west-1 -> af-south-1)
+  -> Processed CSV + metadata in S3 (af-south-1)
+  -> DynamoDB processing record
+  -> Browser polls S3 and downloads CSV
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Tech Stack
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- Frontend: React 19, TypeScript, Vite
+- Auth: AWS Amplify / Cognito
+- Compute: AWS Lambda
+- OCR: Amazon Textract
+- AI extraction: Amazon Bedrock
+- Storage: Amazon S3
+- Audit/state: Amazon DynamoDB
+- Monitoring: CloudWatch
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Local Commands
+
+```bash
+npm install
+npm run lint
+npm run build
+npm run dev
 ```
+
+## Verification
+
+The following commands were run successfully during the architecture review on April 16, 2026:
+
+- `npm run lint`
+- `npm run build`
+
+## Important Notes
+
+- The frontend is tightly coupled to specific AWS resources through `amplify_outputs.json` and hardcoded identifiers in `amplify/backend.ts`.
+- The repo currently documents and implements a POC-oriented extraction workflow, not the broader Syntrix business platform seen on the live hosted site.
+- The default Vite placeholder README has been replaced because it did not describe the actual project.
+- Before production use, the system should move toward job IDs, tenant-scoped S3 prefixes, least-privilege IAM, and a backend API or queue-driven entry point instead of direct browser Lambda invocation.
+
+## Deep Documentation
+
+For the full architecture review, operational analysis, scaling discussion, risk register, and comparison with the hosted Syntrix site, see [docs/syntrix-architecture-review.md](docs/syntrix-architecture-review.md).
